@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>memoBrain</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="app-header">
+        <nav class="site-nav page-tabs" aria-label="Pages">
+          <a href="/" class="nav-link is-active" aria-current="page">Capture</a>
+          <a href="/graph.html" class="nav-link">Graph</a>
+        </nav>
+      </header>
+      <p class="lede page-lede">Write a note, then browse the same files agents read.</p>
+
+      <div class="grid">
+        <section class="panel">
+          <h2>Capture</h2>
+          <form id="capture-form">
+            <label for="title">Title</label>
+            <input id="title" name="title" required />
+
+            <div class="row">
+              <div>
+                <label for="type">Type</label>
+                <select id="type" name="type">
+                  <option value="note">note</option>
+                  <option value="journal">journal</option>
+                  <option value="project">project</option>
+                  <option value="person">person</option>
+                  <option value="decision">decision</option>
+                  <option value="entity">entity</option>
+                </select>
+              </div>
+              <div>
+                <label for="tags">Tags</label>
+                <input id="tags" name="tags" placeholder="nextjs, auth" />
+              </div>
+            </div>
+
+            <label>Links (optional)</label>
+            <div id="links" class="link-picker-host"></div>
+
+            <label for="body">Body</label>
+            <textarea id="body" name="body" placeholder="Markdown. Wiki-links look like [[slug]]."></textarea>
+
+            <button type="submit">Save note</button>
+            <p id="capture-status" class="status"></p>
+          </form>
+        </section>
+
+        <section class="panel">
+          <h2>Browse</h2>
+          <div class="filters">
+            <input id="query" placeholder="Search title or body" />
+            <input id="tag" placeholder="Filter tag" />
+          </div>
+          <ul id="note-list" class="list"></ul>
+          <div id="note-detail"></div>
+        </section>
+      </div>
+    </div>
+    <script src="/link-picker.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

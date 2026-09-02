@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>memoBrain graph</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/vendor/vis-network.min.js"></script>
+  </head>
+  <body>
+    <div class="wrap graph-wrap">
+      <header class="app-header">
+        <nav class="site-nav page-tabs" aria-label="Pages">
+          <a href="/" class="nav-link">Capture</a>
+          <a href="/graph.html" class="nav-link is-active" aria-current="page">Graph</a>
+        </nav>
+        <nav class="scope-tabs" role="tablist" aria-label="Graph scope">
+          <button type="button" class="nav-link scope-tab is-active" data-scope="knowledge">
+            Knowledge
+          </button>
+          <button type="button" class="nav-link scope-tab" data-scope="journal">Journal</button>
+        </nav>
+      </header>
+      <p class="lede page-lede">
+        Knowledge is a hub of topics. Journal is daily notes only. Lines have no direction.
+      </p>
+      <div id="graph-legend" class="legend"></div>
+
+      <div class="graph-layout">
+        <div id="network"></div>
+        <aside class="panel side">
+          <h2>Detail</h2>
+          <p id="graph-empty" class="muted">Click a node to open its note.</p>
+
+          <form id="note-form" hidden>
+            <p id="note-path" class="meta"></p>
+            <p id="note-level" class="level-badge" hidden></p>
+            <label for="note-title">Title</label>
+            <input id="note-title" name="title" required />
+
+            <div class="row">
+              <div>
+                <label for="note-type">Type</label>
+                <select id="note-type" name="type">
+                  <option value="note">note</option>
+                  <option value="journal">journal</option>
+                  <option value="project">project</option>
+                  <option value="person">person</option>
+                  <option value="decision">decision</option>
+                  <option value="entity">entity</option>
+                </select>
+              </div>
+              <div>
+                <label for="note-tags">Tags</label>
+                <input id="note-tags" name="tags" placeholder="nextjs, auth" />
+              </div>
+            </div>
+
+            <label>Links</label>
+            <div id="note-links" class="link-picker-host"></div>
+
+            <label for="note-body">Body</label>
+            <textarea id="note-body" name="body" class="short"></textarea>
+
+            <div class="actions">
+              <button type="submit">Save</button>
+              <button type="button" id="delete-note" class="danger">Delete</button>
+            </div>
+            <button type="button" id="attach-root" class="secondary" hidden>
+              Set as topic under root
+            </button>
+            <p id="note-status" class="status"></p>
+          </form>
+
+          <form id="linked-form" hidden>
+            <h3>Add linked note</h3>
+            <p id="linked-hint" class="muted">Creates a new note and connects it to this node.</p>
+            <label for="linked-title">Title</label>
+            <input id="linked-title" name="title" required />
+            <label for="linked-tags">Tags</label>
+            <input id="linked-tags" name="tags" />
+            <label for="linked-body">Body</label>
+            <textarea id="linked-body" name="body" class="short"></textarea>
+            <button type="submit" class="secondary">Add linked note</button>
+            <p id="linked-status" class="status"></p>
+          </form>
+        </aside>
+      </div>
+    </div>
+    <script src="/link-picker.js"></script>
+    <script src="/graph.js"></script>
+  </body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "memobrain",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "sync": "node scripts/cli/sync.mjs",
+    "dev": "node scripts/ui/server.mjs",
+    "search": "node scripts/cli/search.mjs",
+    "validate": "node scripts/cli/validate.mjs"
+  },
+  "dependencies": {
+    "gray-matter": "^4.0.3",
+    "vis-network": "^9.1.9",
+    "yaml": "^2.8.1"
+  }
+}
