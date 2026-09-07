@@ -9,17 +9,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(__dirname, "../..");
 
 const DEFAULT_GRAPH = {
-  maxLevel: 3,
+  maxLevel: 8,
   rootHub: { id: "memobrain-notes", title: "memoBrain's notes" },
   levels: {
-    1: { background: "#2d5a4a", border: "#1c3f34", label: "memoBrain's notes" },
+    1: { background: "#c91508", border: "#1c3f34", label: "memoBrain's notes" },
     2: { background: "#3d6ea8", border: "#2a4d78", label: "level 2" },
     3: { background: "#c47b2b", border: "#8f5818", label: "level 3" },
     4: { background: "#7a6b8a", border: "#564b61", label: "level 4" },
     5: { background: "#5a8a6b", border: "#3d6149", label: "level 5" },
     6: { background: "#8a5a5a", border: "#613d3d", label: "level 6" },
-    // 7: { background: "#6b5a8a", border: "#4a3d61", label: "level 7" },
-    // 8: { background: "#8a7a5a", border: "#615539", label: "level 8" },
+    7: { background: "#6b5a8a", border: "#4a3d61", label: "level 7" },
+    8: { background: "#8a7a5a", border: "#615539", label: "level 8" },
   },
   unassigned: { background: "#8a8478", border: "#5f5a52", label: "unassigned" },
   journal: { background: "#2d5a4a", border: "#1c3f34", label: "journal" },
@@ -59,7 +59,13 @@ export function normalizeGraphConfig(input = {}) {
   const levels = {};
   for (let level = 1; level <= maxLevel; level += 1) {
     const fromConfig = input.levels?.[level] ?? input.levels?.[String(level)];
-    const fallback = DEFAULT_GRAPH.levels[level] ?? DEFAULT_GRAPH.levels[8];
+    const fallback =
+      DEFAULT_GRAPH.levels[level] ??
+      DEFAULT_GRAPH.levels[8] ?? {
+        background: "#8a8478",
+        border: "#5f5a52",
+        label: `level ${level}`,
+      };
     levels[level] = normalizeStyle(fromConfig, fallback, `level ${level}`);
   }
   return {

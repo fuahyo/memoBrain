@@ -3,6 +3,7 @@ const noteForm = document.querySelector("#note-form");
 const linkedForm = document.querySelector("#linked-form");
 const notePathEl = document.querySelector("#note-path");
 const noteLevelEl = document.querySelector("#note-level");
+const noteLevelSelect = document.querySelector("#note-level-select");
 const noteStatus = document.querySelector("#note-status");
 const linkedStatus = document.querySelector("#linked-status");
 const linkedHint = document.querySelector("#linked-hint");
@@ -10,6 +11,31 @@ const attachRootBtn = document.querySelector("#attach-root");
 const legendEl = document.querySelector("#graph-legend");
 const tabButtons = [...document.querySelectorAll(".scope-tab")];
 const linkPicker = createLinkPicker(document.querySelector("#note-links"));
+const noteBodyEl = document.querySelector("#note-body");
+const notePreviewEl = document.querySelector("#note-preview");
+const bodyTabs = [...document.querySelectorAll(".body-tab")];
+let bodyTab = "edit";
+
+bodyTabs.forEach((button) => {
+  button.addEventListener("click", () => setBodyTab(button.dataset.bodyTab));
+});
+
+function setBodyTab(tab) {
+  bodyTab = tab === "preview" ? "preview" : "edit";
+  bodyTabs.forEach((button) => {
+    const active = button.dataset.bodyTab === bodyTab;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  if (bodyTab === "preview") {
+    notePreviewEl.innerHTML = renderMarkdown(noteBodyEl.value);
+    noteBodyEl.hidden = true;
+    notePreviewEl.hidden = false;
+  } else {
+    noteBodyEl.hidden = false;
+    notePreviewEl.hidden = true;
+  }
+}
 
 let levelStyles = defaultLevelStyles();
 let rootHubId = "memobrain-notes";
@@ -38,6 +64,7 @@ async function loadGraph(selectId = "") {
   levelStyles = graph.levelStyles ?? defaultLevelStyles();
   rootHubId = levelStyles.rootHub?.id ?? "memobrain-notes";
   rootHubTitle = levelStyles.rootHub?.title ?? "memoBrain's notes";
+  fillLevelOptions();
   currentGraph = graph;
   renderLegend();
   await refreshLinkCatalog();
@@ -123,18 +150,28 @@ async function showNote(id) {
   noteForm.title.value = note.title ?? "";
   noteForm.type.value = note.type ?? "note";
   noteForm.tags.value = (note.tags ?? []).join(", ");
+  const explicit = note.explicitLevel ?? null;
+  noteLevelSelect.value =
+    explicit != null ? String(explicit) : "";
   linkPicker.setExclude(note.id);
+  linkPicker.setParent(note.parent || "");
   linkPicker.setValue(note.links ?? []);
   noteForm.body.value = note.content ?? "";
+  setBodyTab("edit");
   linkedForm.reset();
 
   const graphNode = (currentGraph.nodes ?? []).find((item) => item.id === id);
   const level = graphNode?.level ?? note.level ?? null;
   if (currentScope === "knowledge") {
     noteLevelEl.hidden = false;
-    noteLevelEl.textContent = levelLabel(level);
+    noteLevelEl.textContent =
+      explicit != null
+        ? `${levelLabel(level)} · manual`
+        : `${levelLabel(level)} · auto`;
+    noteLevelSelect.disabled = false;
   } else {
     noteLevelEl.hidden = true;
+    noteLevelSelect.disabled = true;
   }
 
   const childLevel = level ? level + 1 : null;
@@ -162,6 +199,8 @@ noteForm.addEventListener("submit", async (event) => {
         type: noteForm.type.value,
         tags: noteForm.tags.value,
         links: linkPicker.getValue(),
+        parent: linkPicker.getParent(),
+        level: noteLevelSelect.value,
         body: noteForm.body.value,
       }),
     });
@@ -242,14 +281,41 @@ linkedForm.addEventListener("submit", async (event) => {
   }
 });
 
+function fillLevelOptions() {
+  const maxLevel = levelStyles.maxLevel ?? 8;
+  const current = noteLevelSelect.value;
+  noteLevelSelect.replaceChildren();
+  const auto = document.createElement("option");
+  auto.value = "";
+  auto.textContent = "Auto (from graph)";
+  noteLevelSelect.append(auto);
+  for (let level = 1; level <= maxLevel; level += 1) {
+    const meta = levelStyles.levels?.[level];
+    const option = document.createElement("option");
+    option.value = String(level);
+    option.textContent = meta?.label
+      ? `${level} · ${meta.label}`
+      : String(level);
+    noteLevelSelect.append(option);
+  }
+  if ([...noteLevelSelect.options].some((item) => item.value === current)) {
+    noteLevelSelect.value = current;
+  }
+}
+
 function defaultLevelStyles() {
   return {
-    maxLevel: 3,
+    maxLevel: 8,
     rootHub: { id: "memobrain-notes", title: "memoBrain's notes" },
     levels: {
       1: { background: "#2d5a4a", border: "#1c3f34", label: "memoBrain's notes" },
       2: { background: "#3d6ea8", border: "#2a4d78", label: "level 2" },
       3: { background: "#c47b2b", border: "#8f5818", label: "level 3" },
+      4: { background: "#7a6b8a", border: "#564b61", label: "level 4" },
+      5: { background: "#5a8a6b", border: "#3d6149", label: "level 5" },
+      6: { background: "#8a5a5a", border: "#613d3d", label: "level 6" },
+      7: { background: "#6b5a8a", border: "#4a3d61", label: "level 7" },
+      8: { background: "#8a7a5a", border: "#615539", label: "level 8" },
     },
     unassigned: { background: "#8a8478", border: "#5f5a52", label: "unassigned" },
     journal: { background: "#2d5a4a", border: "#1c3f34", label: "journal" },
@@ -354,6 +420,8 @@ function resetDetail(message) {
   emptyEl.hidden = false;
   emptyEl.textContent = message;
   linkPicker.reset();
+  setBodyTab("edit");
+  notePreviewEl.innerHTML = "";
 }
 
 async function refreshLinkCatalog() {
@@ -367,6 +435,8 @@ function setStatus(el, message = "", isError = false) {
   el.textContent = message;
   el.classList.toggle("error", Boolean(isError && message));
 }
+
+fillLevelOptions();
 
 loadGraph().catch((error) => {
   emptyEl.textContent = error.message;

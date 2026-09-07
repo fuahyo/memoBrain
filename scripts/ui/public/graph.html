@@ -34,7 +34,6 @@
 
           <form id="note-form" hidden>
             <p id="note-path" class="meta"></p>
-            <p id="note-level" class="level-badge" hidden></p>
             <label for="note-title">Title</label>
             <input id="note-title" name="title" required />
 
@@ -51,16 +50,36 @@
                 </select>
               </div>
               <div>
-                <label for="note-tags">Tags</label>
-                <input id="note-tags" name="tags" placeholder="nextjs, auth" />
+                <label for="note-level-select">Level</label>
+                <select id="note-level-select" name="level">
+                  <option value="">Auto (from graph)</option>
+                </select>
               </div>
             </div>
+
+            <label for="note-tags">Tags</label>
+            <input id="note-tags" name="tags" placeholder="nextjs, auth" />
+
+            <p id="note-level" class="level-badge" hidden></p>
 
             <label>Links</label>
             <div id="note-links" class="link-picker-host"></div>
 
-            <label for="note-body">Body</label>
-            <textarea id="note-body" name="body" class="short"></textarea>
+            <div class="body-panel">
+              <div class="body-panel-head">
+                <label for="note-body">Notes</label>
+                <div class="body-tabs" role="tablist" aria-label="Notes">
+                  <button type="button" class="body-tab is-active" data-body-tab="edit" role="tab" aria-selected="true">
+                    Edit
+                  </button>
+                  <button type="button" class="body-tab" data-body-tab="preview" role="tab" aria-selected="false">
+                    Preview
+                  </button>
+                </div>
+              </div>
+              <textarea id="note-body" name="body" class="tall"></textarea>
+              <div id="note-preview" class="md-preview" hidden></div>
+            </div>
 
             <div class="actions">
               <button type="submit">Save</button>
@@ -88,6 +107,7 @@
       </div>
     </div>
     <script src="/link-picker.js"></script>
+    <script src="/markdown.js"></script>
     <script src="/graph.js"></script>
   </body>
 </html>

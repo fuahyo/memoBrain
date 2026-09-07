@@ -31,13 +31,32 @@ export function extractWikiLinks(text) {
   const seen = new Set();
   const source = String(text ?? "");
   for (const match of source.matchAll(WIKI_LINK)) {
-    const slug = slugify(match[1]);
+    const slug = wikiTargetSlug(match[1]);
     if (slug && !seen.has(slug)) {
       seen.add(slug);
       links.push(slug);
     }
   }
   return links;
+}
+
+/** Remove [[wiki]] mentions that point at the given note ids. Keeps readable text. */
+export function stripWikiLinks(text, ids) {
+  const idSet = new Set((ids ?? []).map(slugify).filter(Boolean));
+  if (!idSet.size) return String(text ?? "");
+  return String(text ?? "").replace(WIKI_LINK, (full, inner) => {
+    const slug = wikiTargetSlug(inner);
+    if (!idSet.has(slug)) return full;
+    const label = String(inner).split("|")[0].trim();
+    return label || slug;
+  });
+}
+
+export function wikiTargetSlug(inner) {
+  const raw = String(inner ?? "");
+  const parts = raw.split("|");
+  const target = parts.length > 1 ? parts[parts.length - 1] : parts[0];
+  return slugify(target);
 }
 
 export function resolveId(filename, data, strategy = "filename") {
@@ -65,10 +84,8 @@ export function parseJson(filename, raw, strategy = "filename") {
 }
 
 function normalizeRecord(filename, data, content, strategy) {
-  const explicitLinks = asStringArray(data.links).map(slugify).filter(Boolean);
+  const links = asStringArray(data.links).map(slugify).filter(Boolean);
   const wikiLinks = extractWikiLinks(content);
-  const links = unique([...explicitLinks, ...wikiLinks]);
-
   const parent = data.parent ? slugify(stringifyScalar(data.parent)) : "";
   const explicitLevel = parseLevel(data.level);
 
@@ -78,6 +95,7 @@ function normalizeRecord(filename, data, content, strategy) {
     type: data.type ? String(data.type) : "note",
     tags: asStringArray(data.tags),
     links,
+    wikiLinks,
     parent,
     explicitLevel,
     updated: stringifyScalar(data.updated),
@@ -88,13 +106,10 @@ function normalizeRecord(filename, data, content, strategy) {
 
 export function parseLevel(value) {
   if (value === undefined || value === null || value === "") return null;
+  if (value === "auto") return null;
   const number = Number(value);
   if (!Number.isFinite(number) || number < 1) return null;
-  return Math.floor(number);
-}
-
-function unique(items) {
-  return [...new Set(items)];
+  return Math.min(8, Math.floor(number));
 }
 
 function stringifyScalar(value) {

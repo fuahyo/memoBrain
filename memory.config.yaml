@@ -2,7 +2,7 @@ name: memoBrain
 locale: en
 
 paths:
-  memory: ./memory
+  memory: ../../memory
   index: ./scripts/index
 
 server:
@@ -30,20 +30,40 @@ graph:
   rootHub:
     id: memobrain-notes
     title: "memoBrain's notes"
-  maxLevel: 3
+  maxLevel: 8
   levels:
     1:
       background: "#2d5a4a"
       border: "#1c3f34"
-      label: "memoBrain's notes"
+      label: hub
     2:
       background: "#3d6ea8"
       border: "#2a4d78"
-      label: level 2
+      label: stacks
     3:
       background: "#c47b2b"
       border: "#8f5818"
-      label: level 3
+      label: apps
+    4:
+      background: "#7a6b8a"
+      border: "#564b61"
+      label: level 4
+    5:
+      background: "#5a8a6b"
+      border: "#3d6149"
+      label: level 5
+    6:
+      background: "#8a5a5a"
+      border: "#613d3d"
+      label: level 6
+    7:
+      background: "#6b5a8a"
+      border: "#4a3d61"
+      label: level 7
+    8:
+      background: "#8a7a5a"
+      border: "#615539"
+      label: level 8
   unassigned:
     background: "#8a8478"
     border: "#5f5a52"
@@ -55,5 +75,5 @@ graph:
 
 sources:
   - id: brain
-    path: ./memory
+    path: ../../memory
     kind: brain

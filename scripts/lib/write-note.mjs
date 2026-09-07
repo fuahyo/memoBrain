@@ -1,8 +1,8 @@
 import { mkdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import matter from "gray-matter";
-import { ROOT } from "./config.mjs";
-import { asStringArray, parseLevel, slugify } from "./parse.mjs";
+import { asStringArray, parseLevel, slugify, stripWikiLinks } from "./parse.mjs";
+import { scanMemory } from "./scan.mjs";
 
 const DATE_NAME = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -65,7 +65,8 @@ export async function createMarkdownNote(config, input) {
   };
 }
 
-export async function updateNote(config, note, input) {
+export async function updateNote(config, note, input, options = {}) {
+  const syncReverse = options.syncReverseLinks !== false;
   const destPath = resolveNoteFile(config, note.path);
   const title = String(input.title ?? note.title ?? "").trim();
   if (!title) {
@@ -74,12 +75,18 @@ export async function updateNote(config, note, input) {
 
   const type = String(input.type ?? note.type ?? "note").trim() || "note";
   const tags = asStringArray(input.tags ?? note.tags);
+  const previousLinks = uniqueSlugs(note.links ?? []);
   const links = uniqueSlugs(asStringArray(input.links ?? note.links));
-  const content = String(input.body ?? input.content ?? note.content ?? "").trim();
+  const removed = previousLinks.filter((id) => !links.includes(id));
+  let content = String(input.body ?? input.content ?? note.content ?? "").trim();
+  if (removed.length) {
+    content = stripWikiLinks(content, removed).trim();
+  }
   const updated = todayStamp();
+  const previousParent = note.parent || "";
   const parent = input.parent !== undefined
     ? slugify(input.parent)
-    : (note.parent || "");
+    : previousParent;
   const level = input.level !== undefined
     ? parseLevel(input.level)
     : (note.explicitLevel ?? null);
@@ -124,6 +131,14 @@ export async function updateNote(config, note, input) {
     );
   }
 
+  if (syncReverse && removed.length) {
+    await removeReverseLinks(config, note.id, removed);
+  }
+
+  if (syncReverse && previousParent && previousParent !== parent) {
+    await removeOutboundLink(config, previousParent, note.id);
+  }
+
   return { id: note.id, path: note.path };
 }
 
@@ -137,8 +152,37 @@ export async function deleteNote(config, note) {
     }
     throw error;
   }
+
+  const noteId = note.id;
+  const outbound = uniqueSlugs(note.links ?? []);
   await unlink(destPath);
-  return { id: note.id, path: note.path };
+
+  const { catalog } = await scanMemory(config);
+  for (const other of catalog.notes) {
+    const hasLink = (other.links ?? []).includes(noteId);
+    const wasParent = other.parent === noteId;
+    if (!hasLink && !wasParent) continue;
+    await updateNote(
+      config,
+      other,
+      {
+        title: other.title,
+        type: other.type,
+        tags: other.tags,
+        links: (other.links ?? []).filter((id) => id !== noteId),
+        parent: wasParent ? "" : other.parent,
+        level: other.explicitLevel,
+        body: other.content,
+      },
+      { syncReverseLinks: false },
+    );
+  }
+
+  if (outbound.length) {
+    await removeReverseLinks(config, noteId, outbound);
+  }
+
+  return { id: noteId, path: note.path };
 }
 
 export async function addLinkToNote(config, note, targetId) {
@@ -174,6 +218,54 @@ export async function attachNoteToRoot(config, note, rootNote) {
   });
 }
 
+async function removeOutboundLink(config, ownerId, targetId) {
+  const { catalog } = await scanMemory(config);
+  const owner = catalog.notes.find((item) => item.id === ownerId);
+  if (!owner) return;
+  const ownerLinks = owner.links ?? [];
+  if (!ownerLinks.includes(targetId)) return;
+  await updateNote(
+    config,
+    owner,
+    {
+      title: owner.title,
+      type: owner.type,
+      tags: owner.tags,
+      links: ownerLinks.filter((id) => id !== targetId),
+      parent: owner.parent,
+      level: owner.explicitLevel,
+      body: owner.content,
+    },
+    { syncReverseLinks: false },
+  );
+}
+
+async function removeReverseLinks(config, fromId, targetIds) {
+  const { catalog } = await scanMemory(config);
+  for (const targetId of targetIds) {
+    const other = catalog.notes.find((item) => item.id === targetId);
+    if (!other) continue;
+    const otherLinks = other.links ?? [];
+    const hasLink = otherLinks.includes(fromId);
+    const wasParent = other.parent === fromId;
+    if (!hasLink && !wasParent) continue;
+    await updateNote(
+      config,
+      other,
+      {
+        title: other.title,
+        type: other.type,
+        tags: other.tags,
+        links: otherLinks.filter((id) => id !== fromId),
+        parent: wasParent ? "" : other.parent,
+        level: other.explicitLevel,
+        body: other.content,
+      },
+      { syncReverseLinks: false },
+    );
+  }
+}
+
 function resolveNoteFile(config, relPath) {
   const normalized = String(relPath ?? "").replace(/\\/g, "/").trim();
   if (!normalized) {
@@ -181,13 +273,14 @@ function resolveNoteFile(config, relPath) {
   }
 
   const memoryRoot = path.resolve(config.paths.memory);
-  let full;
-  if (normalized.startsWith("memory/")) {
-    full = path.resolve(ROOT, normalized);
-  } else {
-    full = path.resolve(memoryRoot, normalized);
+
+  let candidate = normalized;
+  const memoryPrefix = normalized.match(/(?:^|\/)memory\/(.+)$/);
+  if (memoryPrefix) {
+    candidate = memoryPrefix[1];
   }
 
+  const full = path.resolve(memoryRoot, candidate);
   const relative = path.relative(memoryRoot, full);
   if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
     throw Object.assign(new Error("Invalid note path"), { status: 403 });

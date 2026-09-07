@@ -3,6 +3,11 @@ import path from "node:path";
 import { getRootHubId, ROOT } from "./config.mjs";
 import { parseJson, parseMarkdown } from "./parse.mjs";
 
+function outboundTargets(note) {
+  // Graph + hierarchy use frontmatter links only (not [[wiki]] mentions in the body).
+  return [...new Set(note.links ?? [])];
+}
+
 export async function scanMemory(config) {
   const files = await walkFiles(config.paths.memory);
   const notes = [];
@@ -43,7 +48,7 @@ export async function scanMemory(config) {
   const knownIds = new Set(ids);
   const brokenLinks = [];
   for (const note of notes) {
-    for (const target of note.links) {
+    for (const target of outboundTargets(note)) {
       if (!knownIds.has(target)) {
         brokenLinks.push({ from: note.id, to: target, path: note.path });
       }
@@ -114,7 +119,7 @@ function buildGraph(allNotes, scope) {
   const seenEdges = new Set();
   const edges = [];
   for (const note of notes) {
-    const targets = [...note.links];
+    const targets = outboundTargets(note);
     if (note.parent) targets.push(note.parent);
     for (const target of targets) {
       if (!knownIds.has(target) || target === note.id) continue;
@@ -150,7 +155,7 @@ function applyLevels(notes, config) {
 
   for (const note of knowledge) {
     if (note.parent) addChild(note.parent, note.id);
-    for (const target of note.links) addChild(note.id, target);
+    for (const target of outboundTargets(note)) addChild(note.id, target);
   }
 
   const rootId = findRootId(knowledge, config);

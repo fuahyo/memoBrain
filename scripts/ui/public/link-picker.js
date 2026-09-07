@@ -1,21 +1,20 @@
 function createLinkPicker(root) {
   let catalog = [];
   let selected = [];
+  let parentId = "";
   let excludeId = "";
 
   root.classList.add("link-picker");
   root.innerHTML = `
-    <ul class="link-rows"></ul>
-    <p class="link-empty muted">No links yet. Choose a note below.</p>
+    <div class="link-rows-scroll">
+      <ul class="link-rows"></ul>
+      <p class="link-empty muted">No links yet. Choose a note below.</p>
+    </div>
     <div class="link-add">
       <select class="link-select">
         <option value="">Add an existing note…</option>
       </select>
       <button type="button" class="secondary link-add-btn">Add</button>
-    </div>
-    <div class="link-related" hidden>
-      <p class="muted">Also connected</p>
-      <ul class="link-related-rows"></ul>
     </div>
   `;
 
@@ -23,8 +22,6 @@ function createLinkPicker(root) {
   const emptyEl = root.querySelector(".link-empty");
   const selectEl = root.querySelector(".link-select");
   const addBtn = root.querySelector(".link-add-btn");
-  const relatedWrap = root.querySelector(".link-related");
-  const relatedEl = root.querySelector(".link-related-rows");
 
   addBtn.addEventListener("click", () => addSelected());
   selectEl.addEventListener("change", () => {
@@ -35,14 +32,9 @@ function createLinkPicker(root) {
     return catalog.find((note) => note.id === id);
   }
 
-  function labelFor(id) {
-    const note = noteById(id);
-    return note ? `${note.title} (${note.id})` : id;
-  }
-
   function addLink(id) {
     const slug = String(id ?? "").trim();
-    if (!slug || slug === excludeId || selected.includes(slug)) return;
+    if (!slug || slug === excludeId || selected.includes(slug) || slug === parentId) return;
     selected = [...selected, slug];
     render();
   }
@@ -52,57 +44,54 @@ function createLinkPicker(root) {
     selectEl.value = "";
   }
 
-  function relatedNotes() {
-    if (!excludeId) return [];
-    const current = catalog.find((item) => item.id === excludeId);
-    const extra = [];
-    const seen = new Set(selected);
-
-    if (current?.parent && current.parent !== excludeId && !seen.has(current.parent)) {
-      extra.push({ id: current.parent, reason: "parent topic" });
-      seen.add(current.parent);
-    }
-
-    for (const note of catalog) {
-      if (note.id === excludeId || seen.has(note.id)) continue;
-      const incoming =
-        (note.links ?? []).includes(excludeId) || note.parent === excludeId;
-      if (!incoming) continue;
-      extra.push({
-        id: note.id,
-        reason: note.parent === excludeId ? "child note" : "linked from there",
-      });
-      seen.add(note.id);
-    }
-
-    extra.sort((a, b) => labelFor(a.id).localeCompare(labelFor(b.id)));
-    return extra;
+  function appendRow({ id, badge, onRemove }) {
+    const item = document.createElement("li");
+    item.className = "link-row";
+    const text = document.createElement("span");
+    const badgeHtml = badge
+      ? `<span class="link-badge">${escapeHtml(badge)}</span>`
+      : "";
+    text.innerHTML = `<strong>${escapeHtml(noteById(id)?.title || id)}</strong>
+      <span class="meta">${escapeHtml(id)}${badgeHtml ? ` · ${badgeHtml}` : ""}</span>`;
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "link-remove";
+    remove.textContent = "Remove";
+    remove.addEventListener("click", onRemove);
+    item.append(text, remove);
+    rowsEl.append(item);
   }
 
   function render() {
     rowsEl.replaceChildren();
-    emptyEl.hidden = selected.length > 0;
+    const hasRows = Boolean(parentId) || selected.length > 0;
+    emptyEl.hidden = hasRows;
 
-    for (const id of selected) {
-      const item = document.createElement("li");
-      item.className = "link-row";
-      const text = document.createElement("span");
-      text.innerHTML = `<strong>${escapeHtml(noteById(id)?.title || id)}</strong>
-        <span class="meta">${escapeHtml(id)}</span>`;
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.className = "link-remove";
-      remove.textContent = "Remove";
-      remove.addEventListener("click", () => {
-        selected = selected.filter((itemId) => itemId !== id);
-        render();
+    if (parentId) {
+      appendRow({
+        id: parentId,
+        badge: "parent",
+        onRemove: () => {
+          parentId = "";
+          render();
+        },
       });
-      item.append(text, remove);
-      rowsEl.append(item);
     }
 
+    for (const id of selected) {
+      if (id === parentId) continue;
+      appendRow({
+        id,
+        onRemove: () => {
+          selected = selected.filter((itemId) => itemId !== id);
+          render();
+        },
+      });
+    }
+
+    const blocked = new Set([excludeId, parentId, ...selected].filter(Boolean));
     const available = catalog
-      .filter((note) => note.id !== excludeId && !selected.includes(note.id))
+      .filter((note) => !blocked.has(note.id))
       .sort((a, b) => a.title.localeCompare(b.title));
 
     selectEl.replaceChildren();
@@ -119,24 +108,6 @@ function createLinkPicker(root) {
       selectEl.append(option);
     }
     addBtn.disabled = !available.length;
-
-    const extras = relatedNotes();
-    relatedWrap.hidden = extras.length === 0;
-    relatedEl.replaceChildren();
-    for (const extra of extras) {
-      const item = document.createElement("li");
-      item.className = "link-row related";
-      const text = document.createElement("span");
-      text.innerHTML = `<strong>${escapeHtml(noteById(extra.id)?.title || extra.id)}</strong>
-        <span class="meta">${escapeHtml(extra.reason)}</span>`;
-      const include = document.createElement("button");
-      include.type = "button";
-      include.className = "secondary link-include";
-      include.textContent = "Include";
-      include.addEventListener("click", () => addLink(extra.id));
-      item.append(text, include);
-      relatedEl.append(item);
-    }
   }
 
   function escapeHtml(value) {
@@ -158,8 +129,24 @@ function createLinkPicker(root) {
       excludeId = id || "";
       render();
     },
+    setParent(id) {
+      parentId = String(id ?? "").trim();
+      if (parentId) {
+        selected = selected.filter((itemId) => itemId !== parentId);
+      }
+      render();
+    },
+    getParent() {
+      return parentId;
+    },
     setValue(ids) {
-      selected = [...new Set((ids ?? []).map((id) => String(id).trim()).filter(Boolean))];
+      selected = [
+        ...new Set(
+          (ids ?? [])
+            .map((id) => String(id).trim())
+            .filter((id) => id && id !== parentId),
+        ),
+      ];
       render();
     },
     getValue() {
@@ -167,6 +154,7 @@ function createLinkPicker(root) {
     },
     reset() {
       excludeId = "";
+      parentId = "";
       selected = [];
       render();
     },
